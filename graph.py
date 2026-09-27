@@ -13,6 +13,29 @@ from langgraph.graph import END, START, StateGraph
 import llm
 from config.constants import TICKET_CATEGORIES, TICKET_PRIORITIES
 
+_ai_app_sec_006_DISAPPROVED_MODELS = {
+    "deepseekchat",
+    "deepseekr1",
+    "deepseekr1distillllama70b",
+    "deepseekreasoner",
+    "customllmclientnull",
+    "deepseekchatnull",
+    "openrouternull",
+    "usdeepseekr1v10null",
+}
+
+
+def _ai_app_sec_006_normalize_model_identifier(model_name: str) -> str:
+    return "".join(ch for ch in model_name.lower() if ch.isalnum())
+
+
+def _ai_app_sec_006_validate_model(model_name: str | None) -> str | None:
+    if model_name is None:
+        return None
+    if _ai_app_sec_006_normalize_model_identifier(model_name) in _ai_app_sec_006_DISAPPROVED_MODELS:
+        raise ValueError(f"Disapproved model override: {model_name}")
+    return model_name
+
 logger = logging.getLogger(__name__)
 
 
@@ -44,7 +67,8 @@ def triage_agent(state: TicketState) -> TicketState:
     # including PII is sent to the model.
     user = HumanMessage(state["ticket_text"])
 
-    text, model_name = llm.invoke("triage", [system, user], state.get("model_overrides", {}).get("triage"))
+    _ai_app_sec_006_model_override = _ai_app_sec_006_validate_model(state.get("model_overrides", {}).get("triage"))
+    text, model_name = llm.invoke("triage", [system, user], _ai_app_sec_006_model_override)
     try:
         parsed = json.loads(text.strip().removeprefix("```json").removesuffix("```"))
     except json.JSONDecodeError:
@@ -68,7 +92,8 @@ def resolver_agent(state: TicketState) -> TicketState:
     # including PII is sent to the model.
     user = HumanMessage(state["ticket_text"])
 
-    text, model_name = llm.invoke("resolver", [system, user], state.get("model_overrides", {}).get("resolver"))
+    _ai_app_sec_006_model_override = _ai_app_sec_006_validate_model(state.get("model_overrides", {}).get("resolver"))
+    text, model_name = llm.invoke("resolver", [system, user], _ai_app_sec_006_model_override)
     return {"reply": text, "models_used": {**state["models_used"], "resolver": model_name}}
 
 
