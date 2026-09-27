@@ -6,6 +6,36 @@ Policy IDs below map to the UnifAI policies tested in Confluence:
 
 from pathlib import Path
 
+
+def _ai_app_sec_006_normalize_model_name(model_name: str) -> str:
+    return "".join(ch for ch in str(model_name).lower() if ch.isalnum())
+
+
+_ai_app_sec_006_disapproved_models = {
+    _ai_app_sec_006_normalize_model_name(name)
+    for name in (
+        "DeepSeek chat",
+        "DeepSeek r1",
+        "DeepSeek r1-distill-llama-70b",
+        "DeepSeek reasoner",
+        "custom_llm_client null",
+        "deepseek-chat null",
+        "openrouter null",
+        "us.deepseek.r1-v1:0 null",
+        "LLaMA",
+        "llama-4-scout",
+        "meta-llama/llama-4-scout",
+    )
+}
+
+
+def _ai_app_sec_006_validate_model_name(model_name: str) -> str:
+    normalized = _ai_app_sec_006_normalize_model_name(model_name)
+    for blocked in _ai_app_sec_006_disapproved_models:
+        if blocked and blocked in normalized:
+            raise ValueError(f"Disapproved model configured: {model_name}")
+    return model_name
+
 # --- UnifAI policy IDs (referenced in code comments as [POLICY_ID]) ---------
 POLICY_APPROVED_LLMS = "AI_APP_SEC_006"     # Use only LLMs from the organization's approved list
 POLICY_DISALLOWED_LLMS = "AI_APP_SEC_028"   # Do not use LLMs from the organization's disallowed list
@@ -19,8 +49,8 @@ OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 # Default model per agent; overridable via env (TRIAGE_MODEL / RESOLVER_MODEL)
 # and via the Streamlit sidebar.
 DEFAULT_MODELS = {
-    "triage": "meta-llama/llama-4-scout",
-    "resolver": "meta-llama/llama-4-scout",
+    "triage": _ai_app_sec_006_validate_model_name("openai/gpt-4o-mini"),
+    "resolver": _ai_app_sec_006_validate_model_name("openai/gpt-4o-mini"),
 }
 
 # --- Ticket handling --------------------------------------------------------
